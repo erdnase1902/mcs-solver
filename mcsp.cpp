@@ -1,4 +1,4 @@
-#include "graph.h"
+#include "graph.hpp"
 #include "cxxtimer.h"
 
 #include <algorithm>
@@ -87,21 +87,21 @@ static struct {
 static std::atomic<bool> abort_due_to_timeout;
 
 void set_default_arguments() {
-    arguments.quiet = false;
+    arguments.quiet = true;
     arguments.verbose = false;
     arguments.dimacs = false;
     arguments.lad = false;
-    arguments.connected = false;
+    arguments.connected = true;
     arguments.directed = false;
-    arguments.edge_labelled = false;
-    arguments.vertex_labelled = false;
+    arguments.edge_labelled = true;
+    arguments.vertex_labelled = true;
     arguments.big_first = false;
-    arguments.filename1 = NULL;
-    arguments.filename2 = NULL;
-    arguments.timeout = 0;
-    arguments.recursion_threshold = 0;
+    arguments.filename1 = "/home/vagrant/6.mivia"/*NULL*/;
+    arguments.filename2 = "/home/vagrant/4.mivia"/*NULL*/;
+    arguments.timeout = 1;
+    arguments.recursion_threshold = 1000;
     arguments.save_every_seconds = -1;
-    arguments.arg_num = 0;
+    arguments.arg_num = 3;
 }
 
 static error_t parse_opt (int key, char *arg, struct argp_state *state) {
@@ -658,15 +658,15 @@ int sum(const vector<int> & vec) {
     return std::accumulate(std::begin(vec), std::end(vec), 0);
 }
 
-int main(int argc, char** argv) {
+int mcs_simple_default_args(struct Graph g0, struct Graph g1) {
     set_default_arguments();
-    argp_parse(&argp, argc, argv, 0, 0, 0);
+//    argp_parse(&argp, argc, argv, 0, 0, 0);
 
-    char format = arguments.dimacs ? 'D' : arguments.lad ? 'L' : 'B';
-    struct Graph g0 = readGraph(arguments.filename1, format, arguments.directed,
-            arguments.edge_labelled, arguments.vertex_labelled);
-    struct Graph g1 = readGraph(arguments.filename2, format, arguments.directed,
-            arguments.edge_labelled, arguments.vertex_labelled);
+//    char format = arguments.dimacs ? 'D' : arguments.lad ? 'L' : 'B';
+//    struct Graph g0 = readGraph(arguments.filename1, format, arguments.directed,
+//            arguments.edge_labelled, arguments.vertex_labelled);
+//    struct Graph g1 = readGraph(arguments.filename2, format, arguments.directed,
+//            arguments.edge_labelled, arguments.vertex_labelled);
 
 
 
@@ -681,22 +681,22 @@ int main(int argc, char** argv) {
     if (0 != arguments.timeout) {
         timeout_thread = std::thread([&] {
 //                auto abort_time = std::chrono::steady_clock::now() + std::chrono::seconds(arguments.timeout);
-                auto abort_time = std::chrono::steady_clock::now() + std::chrono::seconds(10000000);
-                // infinite timeout here; now rely on local timer to return -2 to signal timeout
-                {
-                    /* Sleep until either we've reached the time limit,
-                     * or we've finished all the work. */
-                    std::unique_lock<std::mutex> guard(timeout_mutex);
-                    while (! abort_due_to_timeout.load()) {
-                        if (std::cv_status::timeout == timeout_cv.wait_until(guard, abort_time)) {
-                            /* We've woken up, and it's due to a timeout. */
-                            aborted = true;
-                            break;
-                        }
+            auto abort_time = std::chrono::steady_clock::now() + std::chrono::seconds(10000000);
+            // infinite timeout here; now rely on local timer to return -2 to signal timeout
+            {
+                /* Sleep until either we've reached the time limit,
+                 * or we've finished all the work. */
+                std::unique_lock<std::mutex> guard(timeout_mutex);
+                while (! abort_due_to_timeout.load()) {
+                    if (std::cv_status::timeout == timeout_cv.wait_until(guard, abort_time)) {
+                        /* We've woken up, and it's due to a timeout. */
+                        aborted = true;
+                        break;
                     }
                 }
-                abort_due_to_timeout.store(true);
-                });
+            }
+            abort_due_to_timeout.store(true);
+        });
     }
 
     auto start = std::chrono::steady_clock::now();
@@ -766,6 +766,7 @@ int main(int argc, char** argv) {
     myfile.open(out_path.string());
     int counter = 0;
     int size = solution.size();
+    return size;
     myfile << size << std::endl;
     myfile << "{";
     for (int i=0; i<g0.n; i++) {
@@ -802,3 +803,39 @@ int main(int argc, char** argv) {
     if (arguments.recursion_threshold!=0 && current_recursion_count>=arguments.recursion_threshold)
         cout << "RECURSION THRESHOLD REACHED" << endl;
 }
+
+int main(int argc, char** argv) {
+    struct Graph g0 = Graph(10);
+    g0.adjmat = {
+            {0,1,1,1,0,0,0,0,0,0},
+            {1,0,0,0,0,0,0,0,0,0},
+            {1,0,0,0,0,0,0,0,0,0},
+            {1,0,0,0,1,1,0,0,0,0},
+            {0,0,0,1,0,0,1,1,0,0},
+            {0,0,0,1,0,0,0,0,1,0},
+            {0,0,0,0,1,0,0,0,0,0},
+            {0,0,0,0,1,0,0,0,0,1},
+            {0,0,0,0,0,1,0,0,0,1},
+            {0,0,0,0,0,0,0,1,1,0}
+    };
+    g0.label = {0,1,1,0,0,0,1,0,0,0};
+    struct Graph g1 = Graph(10);
+    g1.adjmat= {
+            {0,1,1,0,0,0,0,0,0,0},
+            {1,0,0,1,0,0,0,0,0,0},
+            {1,0,0,0,1,1,1,0,0,0},
+            {0,1,0,0,0,0,0,1,1,1},
+            {0,0,1,0,0,0,0,0,0,0},
+            {0,0,1,0,0,0,0,0,0,0},
+            {0,0,1,0,0,0,0,0,0,0},
+            {0,0,0,1,0,0,0,0,0,0},
+            {0,0,0,1,0,0,0,0,0,0},
+            {0,0,0,1,0,0,0,0,0,0}
+    };
+    g1.label = {0,0,2,2,1,1,1,1,1,1};
+
+    int mcs_size = mcs_simple_default_args(g0, g1);
+
+    return 0;
+}
+
